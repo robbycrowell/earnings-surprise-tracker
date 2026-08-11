@@ -1,141 +1,237 @@
 import { useState, useMemo, useCallback } from "react";
 
+const DEFAULT_TICKERS = ["AAPL","MSFT","GOOGL","AMZN","NVDA","META","TSLA","JPM","GS","NFLX","LLY","AMD","DIS","JNJ","V","MA","BAC","UNH","HD","CRM","XOM","PG","WMT","COST"];
+
 const SAMPLE_DATA = [
-  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2026-01-30",epsEstimate:2.35,epsActual:2.42,priceBefore:238.5,priceAfter1D:244.2,priceAfter5D:246.8 },
-  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2025-10-30",epsEstimate:1.59,epsActual:1.64,priceBefore:228.1,priceAfter1D:232.8,priceAfter5D:234.2 },
-  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2025-08-01",epsEstimate:1.34,epsActual:1.40,priceBefore:217.0,priceAfter1D:222.4,priceAfter5D:225.1 },
-  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2025-05-01",epsEstimate:1.61,epsActual:1.65,priceBefore:205.3,priceAfter1D:208.1,priceAfter5D:210.4 },
-  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2025-01-30",epsEstimate:2.36,epsActual:2.40,priceBefore:222.8,priceAfter1D:225.0,priceAfter5D:227.2 },
-  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2026-01-29",epsEstimate:0.76,epsActual:0.71,priceBefore:394.5,priceAfter1D:368.2,priceAfter5D:355.0 },
-  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2025-10-23",epsEstimate:0.60,epsActual:0.72,priceBefore:218.6,priceAfter1D:240.1,priceAfter5D:252.3 },
-  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2025-07-22",epsEstimate:0.61,epsActual:0.62,priceBefore:252.8,priceAfter1D:264.9,priceAfter5D:258.4 },
-  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2025-04-22",epsEstimate:0.41,epsActual:0.27,priceBefore:237.7,priceAfter1D:224.4,priceAfter5D:218.8 },
-  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2025-01-29",epsEstimate:0.76,epsActual:0.73,priceBefore:398.1,priceAfter1D:376.4,priceAfter5D:362.0 },
-  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2026-02-26",epsEstimate:0.89,epsActual:0.96,priceBefore:138.2,priceAfter1D:143.7,priceAfter5D:148.1 },
-  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2025-11-20",epsEstimate:0.75,epsActual:0.81,priceBefore:142.0,priceAfter1D:144.8,priceAfter5D:138.6 },
-  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2025-08-27",epsEstimate:0.64,epsActual:0.68,priceBefore:124.6,priceAfter1D:127.8,priceAfter5D:118.9 },
-  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2025-05-28",epsEstimate:0.73,epsActual:0.81,priceBefore:131.3,priceAfter1D:139.2,priceAfter5D:142.8 },
-  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2026-01-28",epsEstimate:3.22,epsActual:3.40,priceBefore:442.0,priceAfter1D:454.3,priceAfter5D:458.1 },
-  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2025-10-29",epsEstimate:3.10,epsActual:3.30,priceBefore:432.5,priceAfter1D:438.2,priceAfter5D:441.6 },
-  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2025-07-22",epsEstimate:2.93,epsActual:3.03,priceBefore:438.7,priceAfter1D:425.1,priceAfter5D:418.3 },
-  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2025-04-30",epsEstimate:3.21,epsActual:3.46,priceBefore:394.0,priceAfter1D:422.3,priceAfter5D:430.8 },
-  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2026-01-15",epsEstimate:4.03,epsActual:4.81,priceBefore:242.8,priceAfter1D:253.1,priceAfter5D:256.4 },
-  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2025-10-15",epsEstimate:3.98,epsActual:4.44,priceBefore:226.5,priceAfter1D:233.1,priceAfter5D:237.8 },
-  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2025-07-11",epsEstimate:4.53,epsActual:4.79,priceBefore:261.0,priceAfter1D:268.4,priceAfter5D:265.2 },
-  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2026-01-29",epsEstimate:6.72,epsActual:7.10,priceBefore:612.0,priceAfter1D:636.5,priceAfter5D:641.2 },
-  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2025-10-29",epsEstimate:5.70,epsActual:6.03,priceBefore:575.3,priceAfter1D:589.2,priceAfter5D:598.4 },
-  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2025-07-30",epsEstimate:5.21,epsActual:5.31,priceBefore:508.2,priceAfter1D:518.6,priceAfter5D:536.8 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2026-07-30",epsEstimate:1.88,epsActual:1.91,priceBefore:232.5,priceAfter1D:237.8,priceAfter5D:235.2 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2026-04-30",epsEstimate:1.92,epsActual:2.01,priceBefore:211.21,priceAfter1D:216.59,priceAfter5D:213.07 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2026-01-30",epsEstimate:2.66,epsActual:2.84,priceBefore:224.97,priceAfter1D:236.0,priceAfter5D:232.8 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2025-10-30",epsEstimate:1.75,epsActual:1.85,priceBefore:233.4,priceAfter1D:228.87,priceAfter5D:227.48 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2025-08-01",epsEstimate:1.42,epsActual:1.57,priceBefore:217.96,priceAfter1D:222.64,priceAfter5D:226.4 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2025-05-01",epsEstimate:1.63,epsActual:1.65,priceBefore:209.07,priceAfter1D:211.21,priceAfter5D:207.21 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2025-01-30",epsEstimate:2.36,epsActual:2.4,priceBefore:239.37,priceAfter1D:236.0,priceAfter5D:228.01 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2024-10-31",epsEstimate:1.6,epsActual:1.64,priceBefore:229.04,priceAfter1D:225.91,priceAfter5D:222.72 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2024-08-01",epsEstimate:1.35,epsActual:1.4,priceBefore:218.24,priceAfter1D:222.08,priceAfter5D:209.27 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2024-05-02",epsEstimate:1.5,epsActual:1.53,priceBefore:169.3,priceAfter1D:173.03,priceAfter5D:183.38 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2024-02-01",epsEstimate:2.1,epsActual:2.18,priceBefore:186.86,priceAfter1D:185.04,priceAfter5D:187.68 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2023-11-02",epsEstimate:1.39,epsActual:1.46,priceBefore:171.1,priceAfter1D:176.65,priceAfter5D:189.33 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2023-08-03",epsEstimate:1.19,epsActual:1.26,priceBefore:195.83,priceAfter1D:191.17,priceAfter5D:181.99 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2023-05-04",epsEstimate:1.43,epsActual:1.52,priceBefore:167.45,priceAfter1D:173.57,priceAfter5D:172.57 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2023-02-02",epsEstimate:1.94,epsActual:1.88,priceBefore:145.43,priceAfter1D:150.82,priceAfter5D:151.73 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2022-10-27",epsEstimate:1.27,epsActual:1.29,priceBefore:149.35,priceAfter1D:155.74,priceAfter5D:138.38 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2022-07-28",epsEstimate:1.16,epsActual:1.2,priceBefore:156.79,priceAfter1D:162.51,priceAfter5D:164.87 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2022-04-28",epsEstimate:1.43,epsActual:1.52,priceBefore:163.64,priceAfter1D:157.65,priceAfter5D:156.77 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2022-01-27",epsEstimate:1.89,epsActual:2.1,priceBefore:159.22,priceAfter1D:170.33,priceAfter5D:174.78 },
+  { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2021-10-28",epsEstimate:1.24,epsActual:1.24,priceBefore:149.32,priceAfter1D:152.57,priceAfter5D:150.44 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2026-07-22",epsEstimate:0.44,epsActual:0.33,priceBefore:363.5,priceAfter1D:340.22,priceAfter5D:345.8 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2026-04-28",epsEstimate:0.39,epsActual:0.5,priceBefore:252.3,priceAfter1D:268.44,priceAfter5D:275.9 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2026-01-28",epsEstimate:0.45,epsActual:0.5,priceBefore:389.1,priceAfter1D:366.42,priceAfter5D:352.56 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2025-10-22",epsEstimate:0.56,epsActual:0.5,priceBefore:218.63,priceAfter1D:240.06,priceAfter5D:257.8 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2025-07-22",epsEstimate:0.37,epsActual:0.34,priceBefore:252.75,priceAfter1D:264.88,priceAfter5D:258.4 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2025-04-22",epsEstimate:0.41,epsActual:0.27,priceBefore:237.71,priceAfter1D:224.44,priceAfter5D:278.3 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2025-01-29",epsEstimate:0.77,epsActual:0.73,priceBefore:398.09,priceAfter1D:376.38,priceAfter5D:361.62 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2024-10-23",epsEstimate:0.58,epsActual:0.72,priceBefore:213.65,priceAfter1D:234.12,priceAfter5D:248.93 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2024-07-23",epsEstimate:0.62,epsActual:0.52,priceBefore:246.38,priceAfter1D:225.01,priceAfter5D:218.24 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2024-04-23",epsEstimate:0.51,epsActual:0.45,priceBefore:144.68,priceAfter1D:157.19,priceAfter5D:168.29 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2024-01-24",epsEstimate:0.75,epsActual:0.71,priceBefore:207.83,priceAfter1D:191.59,priceAfter5D:187.91 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2023-10-18",epsEstimate:0.72,epsActual:0.66,priceBefore:255.7,priceAfter1D:220.89,priceAfter5D:207.38 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2023-07-19",epsEstimate:0.82,epsActual:0.91,priceBefore:293.34,priceAfter1D:291.26,priceAfter5D:265.28 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2023-04-19",epsEstimate:0.85,epsActual:0.85,priceBefore:180.13,priceAfter1D:162.99,priceAfter5D:164.31 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2023-01-25",epsEstimate:1.13,epsActual:1.19,priceBefore:143.75,priceAfter1D:160.27,priceAfter5D:189.98 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2022-10-19",epsEstimate:0.99,epsActual:1.05,priceBefore:222.04,priceAfter1D:214.62,priceAfter5D:209.66 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2022-07-20",epsEstimate:0.6,epsActual:0.76,priceBefore:721.82,priceAfter1D:815.12,priceAfter5D:891.29 },
+  { ticker:"TSLA",name:"Tesla Inc.",sector:"Consumer Discretionary",date:"2022-04-20",epsEstimate:0.75,epsActual:1.07,priceBefore:1005.05,priceAfter1D:1008.78,priceAfter5D:870.76 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2026-04-29",epsEstimate:3.21,epsActual:3.46,priceBefore:394.04,priceAfter1D:422.32,priceAfter5D:430.8 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2026-01-29",epsEstimate:3.11,epsActual:3.23,priceBefore:442.0,priceAfter1D:440.62,priceAfter5D:410.18 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2025-10-29",epsEstimate:3.1,epsActual:3.3,priceBefore:431.95,priceAfter1D:410.41,priceAfter5D:415.57 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2025-07-22",epsEstimate:2.93,epsActual:3.03,priceBefore:438.7,priceAfter1D:425.11,priceAfter5D:418.3 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2025-04-30",epsEstimate:3.21,epsActual:3.46,priceBefore:394.04,priceAfter1D:422.32,priceAfter5D:430.8 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2025-01-29",epsEstimate:3.11,epsActual:3.23,priceBefore:442.0,priceAfter1D:440.62,priceAfter5D:410.18 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2024-10-30",epsEstimate:3.1,epsActual:3.3,priceBefore:431.95,priceAfter1D:410.41,priceAfter5D:415.57 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2024-07-30",epsEstimate:2.93,epsActual:2.95,priceBefore:422.92,priceAfter1D:417.0,priceAfter5D:399.67 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2024-04-25",epsEstimate:2.83,epsActual:2.94,priceBefore:399.04,priceAfter1D:406.32,priceAfter5D:414.8 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2024-01-30",epsEstimate:2.78,epsActual:2.93,priceBefore:404.87,priceAfter1D:408.59,priceAfter5D:405.49 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2023-10-24",epsEstimate:2.65,epsActual:2.99,priceBefore:329.82,priceAfter1D:346.07,priceAfter5D:369.67 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2023-07-25",epsEstimate:2.55,epsActual:2.69,priceBefore:345.24,priceAfter1D:327.78,priceAfter5D:325.12 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2023-04-25",epsEstimate:2.23,epsActual:2.45,priceBefore:281.77,priceAfter1D:295.37,priceAfter5D:307.26 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2023-01-24",epsEstimate:2.29,epsActual:2.32,priceBefore:242.04,priceAfter1D:248.16,priceAfter5D:252.75 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2022-10-25",epsEstimate:2.3,epsActual:2.35,priceBefore:250.66,priceAfter1D:227.87,priceAfter5D:228.87 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2022-07-26",epsEstimate:2.29,epsActual:2.23,priceBefore:261.28,priceAfter1D:268.74,priceAfter5D:282.91 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2022-04-26",epsEstimate:2.19,epsActual:2.22,priceBefore:280.72,priceAfter1D:270.22,priceAfter5D:264.58 },
+  { ticker:"MSFT",name:"Microsoft Corp.",sector:"Technology",date:"2022-01-25",epsEstimate:2.31,epsActual:2.48,priceBefore:296.03,priceAfter1D:288.49,priceAfter5D:305.94 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2026-04-29",epsEstimate:6.63,epsActual:7.29,priceBefore:548.2,priceAfter1D:572.4,priceAfter5D:580.3 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2026-01-29",epsEstimate:8.19,epsActual:8.88,priceBefore:612.0,priceAfter1D:636.5,priceAfter5D:641.2 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2025-10-29",epsEstimate:6.66,epsActual:7.25,priceBefore:575.3,priceAfter1D:589.2,priceAfter5D:598.4 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2025-07-30",epsEstimate:5.87,epsActual:7.14,priceBefore:508.2,priceAfter1D:518.6,priceAfter5D:536.8 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2025-04-30",epsEstimate:5.28,epsActual:6.43,priceBefore:536.7,priceAfter1D:586.1,priceAfter5D:612.4 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2025-01-29",epsEstimate:6.77,epsActual:8.02,priceBefore:668.3,priceAfter1D:692.1,priceAfter5D:704.8 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2024-10-30",epsEstimate:5.68,epsActual:6.03,priceBefore:576.81,priceAfter1D:559.14,priceAfter5D:572.41 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2024-07-31",epsEstimate:5.21,epsActual:5.31,priceBefore:504.72,priceAfter1D:471.91,priceAfter5D:506.28 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2024-04-24",epsEstimate:4.32,epsActual:5.33,priceBefore:493.5,priceAfter1D:442.46,priceAfter5D:463.5 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2024-02-01",epsEstimate:4.96,epsActual:5.33,priceBefore:394.78,priceAfter1D:474.99,priceAfter5D:473.28 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2023-10-25",epsEstimate:3.62,epsActual:4.39,priceBefore:318.68,priceAfter1D:301.27,priceAfter5D:332.45 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2023-07-26",epsEstimate:2.91,epsActual:2.98,priceBefore:316.0,priceAfter1D:321.35,priceAfter5D:302.93 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2023-04-26",epsEstimate:2.02,epsActual:2.2,priceBefore:209.4,priceAfter1D:238.29,priceAfter5D:241.14 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2023-02-01",epsEstimate:2.22,epsActual:1.76,priceBefore:148.97,priceAfter1D:188.77,priceAfter5D:178.35 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2022-10-26",epsEstimate:1.89,epsActual:1.64,priceBefore:135.1,priceAfter1D:97.94,priceAfter5D:96.72 },
+  { ticker:"META",name:"Meta Platforms",sector:"Technology",date:"2022-07-27",epsEstimate:2.54,epsActual:2.46,priceBefore:169.58,priceAfter1D:160.72,priceAfter5D:167.1 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2026-02-26",epsEstimate:0.89,epsActual:0.96,priceBefore:131.28,priceAfter1D:130.01,priceAfter5D:120.42 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2025-11-20",epsEstimate:0.75,epsActual:0.81,priceBefore:141.95,priceAfter1D:144.82,priceAfter5D:138.63 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2025-08-27",epsEstimate:0.64,epsActual:0.68,priceBefore:124.58,priceAfter1D:127.79,priceAfter5D:118.91 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2025-05-28",epsEstimate:0.73,epsActual:0.81,priceBefore:131.29,priceAfter1D:139.2,priceAfter5D:142.84 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2025-02-26",epsEstimate:0.85,epsActual:0.89,priceBefore:131.0,priceAfter1D:124.6,priceAfter5D:120.06 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2024-11-20",epsEstimate:0.75,epsActual:0.81,priceBefore:144.02,priceAfter1D:146.67,priceAfter5D:138.3 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2024-08-28",epsEstimate:0.64,epsActual:0.68,priceBefore:125.61,priceAfter1D:117.59,priceAfter5D:108.22 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2024-05-22",epsEstimate:5.59,epsActual:6.12,priceBefore:949.5,priceAfter1D:1037.9,priceAfter5D:1064.2 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2024-02-21",epsEstimate:4.6,epsActual:5.16,priceBefore:694.52,priceAfter1D:785.38,priceAfter5D:822.79 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2023-11-21",epsEstimate:3.37,epsActual:4.02,priceBefore:499.44,priceAfter1D:482.23,priceAfter5D:467.7 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2023-08-23",epsEstimate:2.09,epsActual:2.7,priceBefore:471.63,priceAfter1D:471.16,priceAfter5D:487.84 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2023-05-24",epsEstimate:0.92,epsActual:1.09,priceBefore:305.38,priceAfter1D:379.8,priceAfter5D:393.27 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2023-02-22",epsEstimate:0.81,epsActual:0.88,priceBefore:236.64,priceAfter1D:232.13,priceAfter5D:231.41 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2022-11-16",epsEstimate:0.7,epsActual:0.58,priceBefore:164.15,priceAfter1D:160.96,priceAfter5D:164.98 },
+  { ticker:"NVDA",name:"NVIDIA Corp.",sector:"Technology",date:"2022-08-24",epsEstimate:1.26,epsActual:0.51,priceBefore:178.51,priceAfter1D:157.36,priceAfter5D:139.37 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2026-04-29",epsEstimate:2.53,epsActual:5.11,priceBefore:157.22,priceAfter1D:170.32,priceAfter5D:174.6 },
   { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2026-02-04",epsEstimate:2.12,epsActual:2.15,priceBefore:192.3,priceAfter1D:193.1,priceAfter5D:190.8 },
   { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2025-10-29",epsEstimate:1.83,epsActual:2.12,priceBefore:169.2,priceAfter1D:178.6,priceAfter5D:182.3 },
   { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2025-07-29",epsEstimate:1.84,epsActual:1.89,priceBefore:166.8,priceAfter1D:170.2,priceAfter5D:164.1 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2025-04-24",epsEstimate:2.01,epsActual:2.81,priceBefore:157.48,priceAfter1D:168.3,priceAfter5D:172.8 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2025-02-04",epsEstimate:2.12,epsActual:2.15,priceBefore:199.42,priceAfter1D:189.41,priceAfter5D:183.2 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2024-10-29",epsEstimate:1.83,epsActual:2.12,priceBefore:165.27,priceAfter1D:172.7,priceAfter5D:169.24 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2024-07-23",epsEstimate:1.84,epsActual:1.89,priceBefore:177.16,priceAfter1D:171.94,priceAfter5D:163.38 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2024-04-25",epsEstimate:1.51,epsActual:1.89,priceBefore:158.87,priceAfter1D:174.6,priceAfter5D:177.29 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2024-01-30",epsEstimate:1.59,epsActual:1.64,priceBefore:141.8,priceAfter1D:142.04,priceAfter5D:147.74 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2023-10-24",epsEstimate:1.45,epsActual:1.55,priceBefore:138.81,priceAfter1D:125.02,priceAfter5D:131.86 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2023-07-25",epsEstimate:1.34,epsActual:1.44,priceBefore:122.29,priceAfter1D:130.43,priceAfter5D:131.38 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2023-04-25",epsEstimate:1.07,epsActual:1.17,priceBefore:104.8,priceAfter1D:107.62,priceAfter5D:120.32 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2023-02-02",epsEstimate:1.18,epsActual:1.05,priceBefore:102.09,priceAfter1D:105.22,priceAfter5D:94.02 },
+  { ticker:"GOOGL",name:"Alphabet Inc.",sector:"Technology",date:"2022-10-25",epsEstimate:1.25,epsActual:1.06,priceBefore:104.93,priceAfter1D:94.82,priceAfter5D:86.49 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2026-01-15",epsEstimate:4.03,epsActual:4.81,priceBefore:242.8,priceAfter1D:253.1,priceAfter5D:256.4 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2025-10-15",epsEstimate:3.98,epsActual:4.44,priceBefore:226.5,priceAfter1D:233.1,priceAfter5D:237.8 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2025-07-11",epsEstimate:4.53,epsActual:4.79,priceBefore:261.0,priceAfter1D:268.4,priceAfter5D:265.2 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2025-04-11",epsEstimate:4.62,epsActual:5.07,priceBefore:234.5,priceAfter1D:246.2,priceAfter5D:250.8 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2025-01-15",epsEstimate:4.03,epsActual:4.81,priceBefore:234.6,priceAfter1D:248.1,priceAfter5D:253.2 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2024-10-11",epsEstimate:3.99,epsActual:4.37,priceBefore:210.8,priceAfter1D:220.4,priceAfter5D:224.1 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2024-07-12",epsEstimate:4.19,epsActual:4.4,priceBefore:205.54,priceAfter1D:209.32,priceAfter5D:214.68 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2024-04-12",epsEstimate:4.11,epsActual:4.44,priceBefore:191.59,priceAfter1D:189.49,priceAfter5D:193.86 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2024-01-12",epsEstimate:3.35,epsActual:3.97,priceBefore:172.64,priceAfter1D:171.71,priceAfter5D:186.19 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2023-10-13",epsEstimate:3.95,epsActual:4.33,priceBefore:148.88,priceAfter1D:150.42,priceAfter5D:149.2 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2023-07-14",epsEstimate:3.96,epsActual:4.37,priceBefore:150.62,priceAfter1D:156.8,priceAfter5D:155.42 },
+  { ticker:"JPM",name:"JPMorgan Chase",sector:"Financials",date:"2023-04-14",epsEstimate:3.41,epsActual:4.1,priceBefore:135.53,priceAfter1D:138.72,priceAfter5D:137.06 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2026-01-15",epsEstimate:8.15,epsActual:11.95,priceBefore:548.2,priceAfter1D:582.4,priceAfter5D:590.1 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2025-10-15",epsEstimate:6.89,epsActual:8.4,priceBefore:504.2,priceAfter1D:536.8,priceAfter5D:548.2 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2025-07-14",epsEstimate:8.34,epsActual:8.62,priceBefore:514.8,priceAfter1D:522.1,priceAfter5D:528.6 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2025-04-14",epsEstimate:12.28,epsActual:14.12,priceBefore:504.6,priceAfter1D:542.8,priceAfter5D:558.1 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2025-01-15",epsEstimate:8.15,epsActual:11.95,priceBefore:548.2,priceAfter1D:582.4,priceAfter5D:590.1 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2024-10-15",epsEstimate:6.89,epsActual:8.4,priceBefore:497.2,priceAfter1D:536.78,priceAfter5D:548.22 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2024-07-15",epsEstimate:8.34,epsActual:8.62,priceBefore:463.28,priceAfter1D:498.63,priceAfter5D:510.24 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2024-04-15",epsEstimate:8.56,epsActual:11.58,priceBefore:396.32,priceAfter1D:418.46,priceAfter5D:440.89 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2024-01-16",epsEstimate:5.48,epsActual:5.48,priceBefore:387.64,priceAfter1D:377.92,priceAfter5D:382.41 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2023-10-17",epsEstimate:5.42,epsActual:5.47,priceBefore:322.08,priceAfter1D:318.63,priceAfter5D:345.82 },
+  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2023-07-19",epsEstimate:3.18,epsActual:3.08,priceBefore:346.11,priceAfter1D:350.28,priceAfter5D:337.48 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2026-04-29",epsEstimate:1.36,epsActual:1.59,priceBefore:188.0,priceAfter1D:198.4,priceAfter5D:196.2 },
   { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2026-02-06",epsEstimate:1.48,epsActual:1.86,priceBefore:218.5,priceAfter1D:231.4,priceAfter5D:228.9 },
   { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2025-10-30",epsEstimate:1.28,epsActual:1.43,priceBefore:192.8,priceAfter1D:198.6,priceAfter5D:202.1 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2025-07-31",epsEstimate:1.03,epsActual:1.26,priceBefore:186.4,priceAfter1D:193.2,priceAfter5D:188.7 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2025-05-01",epsEstimate:1.37,epsActual:1.59,priceBefore:188.0,priceAfter1D:198.4,priceAfter5D:196.2 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2025-02-06",epsEstimate:1.48,epsActual:1.86,priceBefore:235.4,priceAfter1D:225.8,priceAfter5D:218.6 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2024-10-31",epsEstimate:1.14,epsActual:1.43,priceBefore:186.19,priceAfter1D:197.93,priceAfter5D:205.71 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2024-08-01",epsEstimate:1.03,epsActual:1.26,priceBefore:186.99,priceAfter1D:176.42,priceAfter5D:170.06 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2024-04-30",epsEstimate:0.83,epsActual:1.13,priceBefore:179.0,priceAfter1D:191.7,priceAfter5D:186.21 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2024-02-01",epsEstimate:0.72,epsActual:1.0,priceBefore:159.28,priceAfter1D:171.81,priceAfter5D:174.4 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2023-10-26",epsEstimate:0.58,epsActual:0.94,priceBefore:127.74,priceAfter1D:133.09,priceAfter5D:143.44 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2023-07-27",epsEstimate:0.35,epsActual:0.65,priceBefore:128.91,priceAfter1D:128.34,priceAfter5D:133.43 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2023-04-27",epsEstimate:0.21,epsActual:0.31,priceBefore:105.45,priceAfter1D:110.36,priceAfter5D:119.46 },
+  { ticker:"AMZN",name:"Amazon.com Inc.",sector:"Consumer Discretionary",date:"2023-02-02",epsEstimate:0.17,epsActual:0.03,priceBefore:103.39,priceAfter1D:103.39,priceAfter5D:100.55 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2026-04-17",epsEstimate:5.24,epsActual:7.04,priceBefore:962.4,priceAfter1D:1018.3,priceAfter5D:1042.5 },
   { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2026-01-21",epsEstimate:4.18,epsActual:4.52,priceBefore:872.4,priceAfter1D:910.3,priceAfter5D:925.6 },
-  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2025-10-16",epsEstimate:5.07,epsActual:5.40,priceBefore:758.2,priceAfter1D:810.4,priceAfter5D:828.1 },
-  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2026-01-15",epsEstimate:8.15,epsActual:11.95,priceBefore:548.2,priceAfter1D:582.4,priceAfter5D:590.1 },
-  { ticker:"GS",name:"Goldman Sachs",sector:"Financials",date:"2025-10-15",epsEstimate:6.89,epsActual:8.40,priceBefore:504.2,priceAfter1D:536.8,priceAfter5D:548.2 },
-  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2026-02-06",epsEstimate:5.46,epsActual:5.32,priceBefore:782.3,priceAfter1D:752.1,priceAfter5D:745.8 },
-  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2025-10-29",epsEstimate:3.24,epsActual:3.06,priceBefore:832.4,priceAfter1D:795.2,priceAfter5D:780.6 },
-  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2026-02-04",epsEstimate:1.08,epsActual:1.09,priceBefore:128.6,priceAfter1D:122.4,priceAfter5D:119.2 },
-  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2025-10-28",epsEstimate:0.92,epsActual:1.03,priceBefore:152.4,priceAfter1D:148.6,priceAfter5D:142.1 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2025-10-16",epsEstimate:5.07,epsActual:5.4,priceBefore:758.2,priceAfter1D:810.4,priceAfter5D:828.1 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2025-07-17",epsEstimate:4.74,epsActual:4.88,priceBefore:938.6,priceAfter1D:932.4,priceAfter5D:918.2 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2025-04-17",epsEstimate:5.67,epsActual:6.61,priceBefore:992.1,priceAfter1D:1042.8,priceAfter5D:1068.3 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2025-01-21",epsEstimate:4.18,epsActual:4.27,priceBefore:858.1,priceAfter1D:982.4,priceAfter5D:998.6 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2024-10-17",epsEstimate:5.12,epsActual:5.4,priceBefore:694.3,priceAfter1D:763.39,priceAfter5D:785.76 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2024-07-18",epsEstimate:4.74,epsActual:4.88,priceBefore:654.55,priceAfter1D:641.97,priceAfter5D:659.44 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2024-04-18",epsEstimate:4.52,epsActual:5.28,priceBefore:613.16,priceAfter1D:559.49,priceAfter5D:618.36 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2024-01-23",epsEstimate:2.22,epsActual:2.11,priceBefore:481.01,priceAfter1D:561.87,priceAfter5D:576.94 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2023-10-18",epsEstimate:3.49,epsActual:3.73,priceBefore:362.23,priceAfter1D:404.73,priceAfter5D:421.78 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2023-07-19",epsEstimate:2.84,epsActual:3.29,priceBefore:469.0,priceAfter1D:438.0,priceAfter5D:449.71 },
+  { ticker:"NFLX",name:"Netflix Inc.",sector:"Communication Services",date:"2023-04-18",epsEstimate:2.86,epsActual:2.88,priceBefore:336.89,priceAfter1D:328.83,priceAfter5D:354.92 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2026-05-07",epsEstimate:1.41,epsActual:1.52,priceBefore:112.6,priceAfter1D:118.4,priceAfter5D:120.1 },
   { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2026-02-05",epsEstimate:1.44,epsActual:1.38,priceBefore:112.6,priceAfter1D:106.8,priceAfter5D:104.2 },
   { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2025-11-06",epsEstimate:1.09,epsActual:1.14,priceBefore:98.4,priceAfter1D:102.1,priceAfter5D:105.8 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2025-08-06",epsEstimate:1.18,epsActual:1.43,priceBefore:97.8,priceAfter1D:104.6,priceAfter5D:108.2 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2025-05-07",epsEstimate:1.2,epsActual:1.45,priceBefore:102.4,priceAfter1D:110.8,priceAfter5D:112.1 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2025-02-05",epsEstimate:1.44,epsActual:1.76,priceBefore:108.86,priceAfter1D:112.17,priceAfter5D:113.09 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2024-11-14",epsEstimate:1.09,epsActual:1.14,priceBefore:100.56,priceAfter1D:109.38,priceAfter5D:115.57 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2024-08-07",epsEstimate:1.18,epsActual:1.39,priceBefore:86.34,priceAfter1D:85.76,priceAfter5D:87.44 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2024-05-07",epsEstimate:1.1,epsActual:1.21,priceBefore:113.86,priceAfter1D:116.57,priceAfter5D:102.18 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2024-02-07",epsEstimate:0.99,epsActual:1.22,priceBefore:96.36,priceAfter1D:107.49,priceAfter5D:112.39 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2023-11-08",epsEstimate:0.7,epsActual:0.82,priceBefore:84.95,priceAfter1D:85.88,priceAfter5D:92.47 },
+  { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2023-08-09",epsEstimate:0.95,epsActual:1.03,priceBefore:88.41,priceAfter1D:84.17,priceAfter5D:83.6 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2026-02-06",epsEstimate:5.46,epsActual:5.32,priceBefore:782.3,priceAfter1D:752.1,priceAfter5D:745.8 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2025-10-29",epsEstimate:3.24,epsActual:3.06,priceBefore:832.4,priceAfter1D:795.2,priceAfter5D:780.6 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2025-08-07",epsEstimate:3.46,epsActual:3.92,priceBefore:862.1,priceAfter1D:918.4,priceAfter5D:942.3 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2025-04-30",epsEstimate:3.44,epsActual:3.34,priceBefore:872.6,priceAfter1D:838.1,priceAfter5D:810.4 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2025-02-06",epsEstimate:5.46,epsActual:5.32,priceBefore:808.2,priceAfter1D:768.4,priceAfter5D:752.8 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2024-10-30",epsEstimate:3.24,epsActual:3.06,priceBefore:846.81,priceAfter1D:788.24,priceAfter5D:786.77 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2024-08-08",epsEstimate:3.46,epsActual:3.92,priceBefore:836.04,priceAfter1D:938.37,priceAfter5D:955.69 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2024-04-30",epsEstimate:2.48,epsActual:2.58,priceBefore:738.63,priceAfter1D:794.43,priceAfter5D:785.01 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2024-02-06",epsEstimate:2.85,epsActual:2.49,priceBefore:688.12,priceAfter1D:649.82,priceAfter5D:726.53 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2023-11-02",epsEstimate:1.98,epsActual:0.28,priceBefore:580.63,priceAfter1D:550.33,priceAfter5D:569.42 },
+  { ticker:"LLY",name:"Eli Lilly & Co.",sector:"Healthcare",date:"2023-08-08",epsEstimate:2.58,epsActual:2.11,priceBefore:459.82,priceAfter1D:456.34,priceAfter5D:547.02 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2026-02-04",epsEstimate:1.08,epsActual:1.09,priceBefore:128.6,priceAfter1D:122.4,priceAfter5D:119.2 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2025-10-28",epsEstimate:0.92,epsActual:1.03,priceBefore:152.4,priceAfter1D:148.6,priceAfter5D:142.1 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2025-07-29",epsEstimate:0.68,epsActual:0.69,priceBefore:148.2,priceAfter1D:138.4,priceAfter5D:132.6 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2025-04-29",epsEstimate:0.94,epsActual:0.96,priceBefore:96.1,priceAfter1D:98.2,priceAfter5D:102.4 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2025-02-04",epsEstimate:1.08,epsActual:1.09,priceBefore:118.4,priceAfter1D:108.2,priceAfter5D:104.8 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2024-10-29",epsEstimate:0.92,epsActual:1.03,priceBefore:164.44,priceAfter1D:155.21,priceAfter5D:143.5 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2024-07-30",epsEstimate:0.68,epsActual:0.69,priceBefore:144.55,priceAfter1D:131.65,priceAfter5D:141.82 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2024-04-30",epsEstimate:0.62,epsActual:0.62,priceBefore:157.39,priceAfter1D:161.12,priceAfter5D:151.93 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2024-01-30",epsEstimate:0.77,epsActual:0.77,priceBefore:184.15,priceAfter1D:181.1,priceAfter5D:174.25 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2023-10-31",epsEstimate:0.68,epsActual:0.7,priceBefore:102.64,priceAfter1D:107.24,priceAfter5D:119.11 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2023-08-01",epsEstimate:0.57,epsActual:0.58,priceBefore:113.06,priceAfter1D:106.14,priceAfter5D:105.25 },
+  { ticker:"AMD",name:"Advanced Micro Devices",sector:"Technology",date:"2023-05-02",epsEstimate:0.56,epsActual:0.6,priceBefore:89.37,priceAfter1D:81.63,priceAfter5D:95.37 },
 ];
 
-// Alpha Vantage API - free tier: 25 calls/day, returns full earnings history
+const SECTOR_MAP = {
+  Technology:"Technology","Information Technology":"Technology",
+  Financials:"Financials","Financial Services":"Financials",
+  "Health Care":"Healthcare",Healthcare:"Healthcare",
+  "Consumer Cyclical":"Consumer Discretionary","Consumer Discretionary":"Consumer Discretionary",
+  "Consumer Defensive":"Consumer Staples","Consumer Staples":"Consumer Staples",
+  Energy:"Energy","Communication Services":"Communication Services",
+  Industrials:"Industrials","Real Estate":"Real Estate",Utilities:"Utilities",
+  "Basic Materials":"Materials",Materials:"Materials",
+};
+
 async function fetchEarningsForTicker(ticker, apiKey) {
   try {
-    // Alpha Vantage EARNINGS endpoint returns all quarterly earnings with estimates
-    const earningsRes = await fetch(
-      `https://www.alphavantage.co/query?function=EARNINGS&symbol=${ticker}&apikey=${apiKey}`
-    );
-    const earningsData = await earningsRes.json();
-
-    if (earningsData["Note"] || earningsData["Information"]) {
-      console.warn("Alpha Vantage rate limit hit. Wait a minute and try again.");
-      return [];
-    }
-
-    const quarterly = earningsData.quarterlyEarnings;
-    if (!Array.isArray(quarterly) || !quarterly.length) return [];
-
-    // Get daily prices
-    const priceRes = await fetch(
-      `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${apiKey}`
-    );
-    const priceData = await priceRes.json();
-
-    if (priceData["Note"] || priceData["Information"]) {
-      console.warn("Alpha Vantage rate limit hit on price data.");
-      return [];
-    }
-
-    const dailyPrices = priceData["Time Series (Daily)"];
-    if (!dailyPrices) return [];
-
-    // Sort price dates descending
-    const priceDates = Object.keys(dailyPrices).sort((a, b) => b.localeCompare(a));
-
-    // Get company name from first earnings entry or use ticker
-    const name = ticker; // Alpha Vantage EARNINGS doesn't include company name
-
-    // Try to get overview for name and sector
-    let companyName = ticker;
-    let sector = "Other";
-    try {
-      const overviewRes = await fetch(
-        `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${apiKey}`
-      );
-      const overview = await overviewRes.json();
-      if (overview.Name) companyName = overview.Name;
-      if (overview.Sector) sector = overview.Sector;
-    } catch (e) {
-      // Ignore - just use ticker
-    }
-
+    const [earningsRes, priceRes, profileRes] = await Promise.all([
+      fetch(`https://financialmodelingprep.com/api/v3/earnings-surprises/${ticker}?apikey=${apiKey}`),
+      fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${ticker}?serietype=line&from=2019-01-01&apikey=${apiKey}`),
+      fetch(`https://financialmodelingprep.com/api/v3/profile/${ticker}?apikey=${apiKey}`),
+    ]);
+    const [earnings, priceData, profileArr] = await Promise.all([earningsRes.json(), priceRes.json(), profileRes.json()]);
+    if (!Array.isArray(earnings) || !priceData?.historical) return [];
+    const profile = Array.isArray(profileArr) ? profileArr[0] : null;
+    const name = profile?.companyName || ticker;
+    const sector = SECTOR_MAP[profile?.sector || "Other"] || profile?.sector || "Other";
+    const priceList = priceData.historical;
     const results = [];
-
-    for (const q of quarterly.slice(0, 28)) {
-      const reportDate = q.reportedDate || q.fiscalDateEnding;
-      const epsEstimate = parseFloat(q.estimatedEPS);
-      const epsActual = parseFloat(q.reportedEPS);
-
-      if (!reportDate || isNaN(epsEstimate) || isNaN(epsActual) || epsEstimate === 0) continue;
-
-      // Find the price on the reporting date and surrounding days
-      let reportIdx = -1;
-      for (let i = 0; i < priceDates.length; i++) {
-        if (priceDates[i] <= reportDate) { reportIdx = i; break; }
-      }
-
-      if (reportIdx < 0 || reportIdx - 1 < 0) continue;
-
-      const priceBefore = parseFloat(dailyPrices[priceDates[reportIdx]]["4. close"]);
-      const priceAfter1D = reportIdx - 1 >= 0
-        ? parseFloat(dailyPrices[priceDates[reportIdx - 1]]["4. close"])
-        : priceBefore;
-      const priceAfter5D = reportIdx - 5 >= 0
-        ? parseFloat(dailyPrices[priceDates[reportIdx - 5]]["4. close"])
-        : priceAfter1D;
-
+    for (const e of earnings.slice(0, 28)) {
+      if (!e.actualEarningResult || !e.estimatedEarning || !e.date) continue;
+      let beforeIdx = -1;
+      for (let i = 0; i < priceList.length; i++) { if (priceList[i].date <= e.date) { beforeIdx = i; break; } }
+      if (beforeIdx < 0 || beforeIdx - 1 < 0) continue;
       results.push({
-        ticker,
-        name: companyName,
-        sector,
-        date: reportDate,
-        epsEstimate,
-        epsActual,
-        priceBefore,
-        priceAfter1D,
-        priceAfter5D,
+        ticker, name, sector, date: e.date,
+        epsEstimate: e.estimatedEarning, epsActual: e.actualEarningResult,
+        priceBefore: priceList[beforeIdx].close,
+        priceAfter1D: beforeIdx - 1 >= 0 ? priceList[beforeIdx - 1].close : priceList[beforeIdx].close,
+        priceAfter5D: beforeIdx - 5 >= 0 ? priceList[beforeIdx - 5].close : priceList[beforeIdx - 1 >= 0 ? beforeIdx - 1 : beforeIdx].close,
       });
     }
-
     return results;
-  } catch (err) {
-    console.error(`Error fetching ${ticker}:`, err);
-    return [];
-  }
+  } catch (err) { console.error(`Error fetching ${ticker}:`, err); return []; }
 }
 
 function process(raw) {
@@ -342,7 +438,7 @@ function Drilldown({ ticker, data, onBack }) {
       <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden"}}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr style={{borderBottom:"1px solid var(--border)",background:"var(--btn-bg)"}}>
+            <thead><tr style={{borderBottom:"1px solid var(--border)"}}>
               {["Date","EPS Est","EPS Actual","Surprise","1D Move","5D Move"].map(h=>(<th key={h} style={{padding:"10px 14px",textAlign:"left",fontFamily:"var(--mono)",fontSize:9,textTransform:"uppercase",letterSpacing:".06em",color:"var(--dim)",fontWeight:600}}>{h}</th>))}
             </tr></thead>
             <tbody>
@@ -377,28 +473,36 @@ export default function App() {
   const [loadProgress,setLoadProgress]=useState("");
   const [customTicker,setCustomTicker]=useState("");
 
-  // Alpha Vantage: 25 calls/day free. Each ticker uses 3 calls (earnings, prices, overview).
-  // So ~8 tickers per day on free tier. Load one at a time.
-  const handleAddTicker = useCallback(async () => {
+  const fetchAllData = useCallback(async (key, tickers) => {
+    setLoading(true);
+    const allResults = [];
+    for (let i = 0; i < tickers.length; i++) {
+      setLoadProgress(`Loading ${tickers[i]} (${i+1}/${tickers.length})...`);
+      const results = await fetchEarningsForTicker(tickers[i], key);
+      allResults.push(...results);
+      if (i < tickers.length - 1) await new Promise(r => setTimeout(r, 250));
+    }
+    setLiveData(allResults);
+    setLoading(false);
+    setLoadProgress("");
+  }, []);
+
+  const handleSaveKey = () => { setShowModal(false); if (apiKey.trim()) fetchAllData(apiKey.trim(), DEFAULT_TICKERS); };
+
+  const handleAddTicker = () => {
     const t = customTicker.trim().toUpperCase();
     if (!t || !apiKey) return;
     setCustomTicker("");
     setLoading(true);
-    setLoadProgress(`Loading ${t}... (3 API calls)`);
-    const results = await fetchEarningsForTicker(t, apiKey);
-    if (results.length) {
-      setLiveData(prev => [...(prev || []), ...results]);
-      setLoadProgress(`✓ Loaded ${results.length} quarters for ${t}`);
-    } else {
-      setLoadProgress(`No data found for ${t} — may have hit rate limit (25 calls/day). Wait 1 min and retry.`);
-    }
-    setLoading(false);
-    setTimeout(() => setLoadProgress(""), 4000);
-  }, [customTicker, apiKey]);
+    setLoadProgress(`Loading ${t}...`);
+    fetchEarningsForTicker(t, apiKey).then(results => {
+      if (results.length) setLiveData(prev => [...(prev || []), ...results]);
+      else { setLoadProgress(`No data found for ${t}`); setTimeout(() => setLoadProgress(""), 2000); }
+      setLoading(false);
+    });
+  };
 
-  const handleSaveKey = () => { setShowModal(false); };
-
-  const rawData = liveData && liveData.length > 0 ? [...SAMPLE_DATA, ...liveData] : SAMPLE_DATA;
+  const rawData = liveData || SAMPLE_DATA;
   const allData = useMemo(() => process(rawData), [rawData]);
   const sectors = useMemo(() => { const s = new Set(allData.map(d => d.sector)); return ["All", ...Array.from(s).sort()]; }, [allData]);
   const latest = useMemo(() => getLatest(allData), [allData]);
@@ -426,12 +530,28 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
         :root {
-          --display:'Plus Jakarta Sans',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
-          --bg:#f8fafc;--card:#ffffff;--plot:#f1f5f9;--border:#e2e8f0;--text:#0f172a;--dim:#64748b;
-          --grid-label:rgba(100,116,139,.3);--green:#059669;--red:#dc2626;--orange:#d97706;--accent:#4f46e5;
-          --grid:rgba(100,116,139,.15);--zero:rgba(100,116,139,.3);--tag-bg:#f1f5f9;--btn-bg:#f1f5f9;--btn-active:#4f46e5;
+          --display:'Plus Jakarta Sans',sans-serif;
+          --body:'Inter',sans-serif;
+          --mono:'JetBrains Mono',monospace;
+          --bg:#f8fafc;
+          --card:#ffffff;
+          --plot:#f1f5f9;
+          --border:#e2e8f0;
+          --text:#0f172a;
+          --dim:#64748b;
+          --grid-label:rgba(100,116,139,.3);
+          --green:#059669;
+          --red:#dc2626;
+          --orange:#d97706;
+          --accent:#4f46e5;
+          --grid:rgba(100,116,139,.15);
+          --zero:rgba(100,116,139,.3);
+          --tag-bg:#f1f5f9;
+          --btn-bg:#f1f5f9;
+          --btn-active:#4f46e5;
         }
-        *{box-sizing:border-box;margin:0}button{cursor:pointer;border:none;font-family:var(--body)}
+        *{box-sizing:border-box;margin:0}
+        button{cursor:pointer;border:none;font-family:var(--body)}
         @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
       `}</style>
 
@@ -444,29 +564,26 @@ export default function App() {
         </div>
         <p style={{ color:"var(--dim)", fontSize:13, marginBottom:6 }}>How stocks react to earnings surprises — click any stock for its historical pattern.</p>
 
-        {loadProgress && (
-          <div style={{ padding:"10px 14px", background:loadProgress.startsWith("✓")?"rgba(5,150,105,.06)":"rgba(79,70,229,.06)", border:`1px solid ${loadProgress.startsWith("✓")?"rgba(5,150,105,.15)":"rgba(79,70,229,.15)"}`, borderRadius:8, fontSize:12, color:loadProgress.startsWith("✓")?"var(--green)":"var(--accent)", marginBottom:12, animation:loading?"pulse 1.5s ease-in-out infinite":"none" }}>
-            {loadProgress}
+        {loading && (
+          <div style={{ padding:"10px 14px", background:"rgba(79,70,229,.06)", border:"1px solid rgba(79,70,229,.15)", borderRadius:8, fontSize:12, color:"var(--accent)", marginBottom:12, animation:"pulse 1.5s ease-in-out infinite" }}>
+            {loadProgress || "Loading..."}
           </div>
         )}
 
-        {!apiKey && (
+        {!apiKey && !loading && (
           <div style={{ marginBottom:16, padding:"8px 12px", background:"rgba(79,70,229,.05)", border:"1px solid rgba(79,70,229,.12)", borderRadius:8, fontSize:11, color:"var(--accent)" }}>
-            Showing sample data. Click "Connect API Key" to add an Alpha Vantage key and load live earnings data.
+            Sample data · Click "Connect API Key" for live earnings data from Financial Modeling Prep.
           </div>
         )}
 
-        {/* Add ticker */}
-        {!selectedTicker && (
+        {apiKey && !selectedTicker && (
           <div style={{ display:"flex", gap:8, marginBottom:16, alignItems:"center" }}>
-            <input type="text" placeholder={apiKey ? "Add ticker (e.g. INTC)" : "Connect API key first"} value={customTicker}
+            <input type="text" placeholder="Add ticker (e.g. INTC)" value={customTicker}
               onChange={e=>setCustomTicker(e.target.value.toUpperCase())}
               onKeyDown={e=>e.key==="Enter"&&handleAddTicker()}
-              disabled={!apiKey}
-              style={{ padding:"7px 12px", background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, color:"var(--text)", fontSize:12, fontFamily:"var(--mono)", width:200, outline:"none", opacity:apiKey?1:.5 }}
+              style={{ padding:"7px 12px", background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, color:"var(--text)", fontSize:12, fontFamily:"var(--mono)", width:160, outline:"none" }}
             />
-            <button onClick={handleAddTicker} disabled={!apiKey} style={{ padding:"7px 14px", borderRadius:8, background:apiKey?"var(--accent)":"var(--dim)", color:"#fff", fontSize:12, fontWeight:600, opacity:apiKey?1:.5 }}>Add</button>
-            {apiKey && <span style={{fontSize:10,color:"var(--dim)",fontFamily:"var(--mono)"}}>Free tier: ~8 stocks/day (25 API calls)</span>}
+            <button onClick={handleAddTicker} style={{ padding:"7px 14px", borderRadius:8, background:"var(--accent)", color:"#fff", fontSize:12, fontWeight:600 }}>Add</button>
           </div>
         )}
 
@@ -557,22 +674,19 @@ export default function App() {
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.3)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:20 }} onClick={()=>setShowModal(false)}>
           <div onClick={e=>e.stopPropagation()} style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:14, padding:24, maxWidth:420, width:"100%", boxShadow:"0 8px 30px rgba(0,0,0,.12)" }}>
             <h3 style={{ fontFamily:"var(--display)", fontSize:16, fontWeight:700, marginBottom:6, color:"var(--text)" }}>Connect Live Data</h3>
-            <p style={{ color:"var(--dim)", fontSize:12, lineHeight:1.5, marginBottom:6 }}>Get a free Alpha Vantage API key:</p>
+            <p style={{ color:"var(--dim)", fontSize:12, lineHeight:1.5, marginBottom:6 }}>Get a free API key from Financial Modeling Prep:</p>
             <ol style={{ color:"var(--dim)", fontSize:12, lineHeight:1.8, marginBottom:14, paddingLeft:20 }}>
-              <li>Go to <span style={{ color:"var(--accent)", fontWeight:500 }}>alphavantage.co/support/#api-key</span></li>
-              <li>Fill out the short form</li>
-              <li>Copy your API key</li>
-              <li>Paste it below</li>
+              <li>Go to <span style={{ color:"var(--accent)", fontWeight:500 }}>financialmodelingprep.com</span></li>
+              <li>Sign up (free tier = 250 calls/day)</li>
+              <li>Copy your API key from the dashboard</li>
+              <li>Paste it below and hit Save</li>
             </ol>
-            <p style={{ color:"var(--dim)", fontSize:11, marginBottom:10, lineHeight:1.4 }}>
-              Free tier = 25 API calls/day (~8 stocks). Each stock you add pulls full earnings history (20+ quarters).
-            </p>
-            <input type="text" placeholder="Paste your Alpha Vantage API key" value={apiKey} onChange={e=>setApiKey(e.target.value)}
+            <input type="text" placeholder="Paste your FMP API key here" value={apiKey} onChange={e=>setApiKey(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&handleSaveKey()}
               style={{ width:"100%", padding:"10px 12px", background:"var(--btn-bg)", border:"1px solid var(--border)", borderRadius:8, color:"var(--text)", fontSize:12, marginBottom:12, outline:"none", fontFamily:"var(--mono)" }}
             />
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={handleSaveKey} style={{ flex:1, padding:"10px", borderRadius:8, background:"var(--accent)", color:"#fff", fontWeight:600, fontSize:13 }}>Save</button>
+              <button onClick={handleSaveKey} style={{ flex:1, padding:"10px", borderRadius:8, background:"var(--accent)", color:"#fff", fontWeight:600, fontSize:13 }}>Save & Load Data</button>
               <button onClick={()=>setShowModal(false)} style={{ flex:1, padding:"10px", borderRadius:8, background:"var(--btn-bg)", color:"var(--dim)", fontWeight:500, fontSize:13, border:"1px solid var(--border)" }}>Cancel</button>
             </div>
           </div>
