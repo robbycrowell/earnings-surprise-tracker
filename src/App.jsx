@@ -1,7 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
 
-const DEFAULT_TICKERS = ["AAPL","MSFT","GOOGL","AMZN","NVDA","META","TSLA","JPM","GS","NFLX","LLY","AMD","DIS","JNJ","V","MA","BAC","UNH","HD","CRM","XOM","PG","WMT","COST"];
-
 const SAMPLE_DATA = [
   { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2026-01-30",epsEstimate:2.35,epsActual:2.42,priceBefore:238.5,priceAfter1D:244.2,priceAfter5D:246.8 },
   { ticker:"AAPL",name:"Apple Inc.",sector:"Technology",date:"2025-10-30",epsEstimate:1.59,epsActual:1.64,priceBefore:228.1,priceAfter1D:232.8,priceAfter5D:234.2 },
@@ -44,46 +42,100 @@ const SAMPLE_DATA = [
   { ticker:"DIS",name:"Walt Disney Co.",sector:"Communication Services",date:"2025-11-06",epsEstimate:1.09,epsActual:1.14,priceBefore:98.4,priceAfter1D:102.1,priceAfter5D:105.8 },
 ];
 
-const SECTOR_MAP = {
-  Technology:"Technology","Information Technology":"Technology",
-  Financials:"Financials","Financial Services":"Financials",
-  "Health Care":"Healthcare",Healthcare:"Healthcare",
-  "Consumer Cyclical":"Consumer Discretionary","Consumer Discretionary":"Consumer Discretionary",
-  "Consumer Defensive":"Consumer Staples","Consumer Staples":"Consumer Staples",
-  Energy:"Energy","Communication Services":"Communication Services",
-  Industrials:"Industrials","Real Estate":"Real Estate",Utilities:"Utilities",
-  "Basic Materials":"Materials",Materials:"Materials",
-};
-
+// Alpha Vantage API - free tier: 25 calls/day, returns full earnings history
 async function fetchEarningsForTicker(ticker, apiKey) {
   try {
-    const [earningsRes, priceRes, profileRes] = await Promise.all([
-      fetch(`https://financialmodelingprep.com/api/v3/earnings-surprises/${ticker}?apikey=${apiKey}`),
-      fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${ticker}?serietype=line&from=2019-01-01&apikey=${apiKey}`),
-      fetch(`https://financialmodelingprep.com/api/v3/profile/${ticker}?apikey=${apiKey}`),
-    ]);
-    const [earnings, priceData, profileArr] = await Promise.all([earningsRes.json(), priceRes.json(), profileRes.json()]);
-    if (!Array.isArray(earnings) || !priceData?.historical) return [];
-    const profile = Array.isArray(profileArr) ? profileArr[0] : null;
-    const name = profile?.companyName || ticker;
-    const sector = SECTOR_MAP[profile?.sector || "Other"] || profile?.sector || "Other";
-    const priceList = priceData.historical;
+    // Alpha Vantage EARNINGS endpoint returns all quarterly earnings with estimates
+    const earningsRes = await fetch(
+      `https://www.alphavantage.co/query?function=EARNINGS&symbol=${ticker}&apikey=${apiKey}`
+    );
+    const earningsData = await earningsRes.json();
+
+    if (earningsData["Note"] || earningsData["Information"]) {
+      console.warn("Alpha Vantage rate limit hit. Wait a minute and try again.");
+      return [];
+    }
+
+    const quarterly = earningsData.quarterlyEarnings;
+    if (!Array.isArray(quarterly) || !quarterly.length) return [];
+
+    // Get daily prices
+    const priceRes = await fetch(
+      `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${apiKey}`
+    );
+    const priceData = await priceRes.json();
+
+    if (priceData["Note"] || priceData["Information"]) {
+      console.warn("Alpha Vantage rate limit hit on price data.");
+      return [];
+    }
+
+    const dailyPrices = priceData["Time Series (Daily)"];
+    if (!dailyPrices) return [];
+
+    // Sort price dates descending
+    const priceDates = Object.keys(dailyPrices).sort((a, b) => b.localeCompare(a));
+
+    // Get company name from first earnings entry or use ticker
+    const name = ticker; // Alpha Vantage EARNINGS doesn't include company name
+
+    // Try to get overview for name and sector
+    let companyName = ticker;
+    let sector = "Other";
+    try {
+      const overviewRes = await fetch(
+        `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${apiKey}`
+      );
+      const overview = await overviewRes.json();
+      if (overview.Name) companyName = overview.Name;
+      if (overview.Sector) sector = overview.Sector;
+    } catch (e) {
+      // Ignore - just use ticker
+    }
+
     const results = [];
-    for (const e of earnings.slice(0, 28)) {
-      if (!e.actualEarningResult || !e.estimatedEarning || !e.date) continue;
-      let beforeIdx = -1;
-      for (let i = 0; i < priceList.length; i++) { if (priceList[i].date <= e.date) { beforeIdx = i; break; } }
-      if (beforeIdx < 0 || beforeIdx - 1 < 0) continue;
+
+    for (const q of quarterly.slice(0, 28)) {
+      const reportDate = q.reportedDate || q.fiscalDateEnding;
+      const epsEstimate = parseFloat(q.estimatedEPS);
+      const epsActual = parseFloat(q.reportedEPS);
+
+      if (!reportDate || isNaN(epsEstimate) || isNaN(epsActual) || epsEstimate === 0) continue;
+
+      // Find the price on the reporting date and surrounding days
+      let reportIdx = -1;
+      for (let i = 0; i < priceDates.length; i++) {
+        if (priceDates[i] <= reportDate) { reportIdx = i; break; }
+      }
+
+      if (reportIdx < 0 || reportIdx - 1 < 0) continue;
+
+      const priceBefore = parseFloat(dailyPrices[priceDates[reportIdx]]["4. close"]);
+      const priceAfter1D = reportIdx - 1 >= 0
+        ? parseFloat(dailyPrices[priceDates[reportIdx - 1]]["4. close"])
+        : priceBefore;
+      const priceAfter5D = reportIdx - 5 >= 0
+        ? parseFloat(dailyPrices[priceDates[reportIdx - 5]]["4. close"])
+        : priceAfter1D;
+
       results.push({
-        ticker, name, sector, date: e.date,
-        epsEstimate: e.estimatedEarning, epsActual: e.actualEarningResult,
-        priceBefore: priceList[beforeIdx].close,
-        priceAfter1D: beforeIdx - 1 >= 0 ? priceList[beforeIdx - 1].close : priceList[beforeIdx].close,
-        priceAfter5D: beforeIdx - 5 >= 0 ? priceList[beforeIdx - 5].close : priceList[beforeIdx - 1 >= 0 ? beforeIdx - 1 : beforeIdx].close,
+        ticker,
+        name: companyName,
+        sector,
+        date: reportDate,
+        epsEstimate,
+        epsActual,
+        priceBefore,
+        priceAfter1D,
+        priceAfter5D,
       });
     }
+
     return results;
-  } catch (err) { console.error(`Error fetching ${ticker}:`, err); return []; }
+  } catch (err) {
+    console.error(`Error fetching ${ticker}:`, err);
+    return [];
+  }
 }
 
 function process(raw) {
@@ -290,7 +342,7 @@ function Drilldown({ ticker, data, onBack }) {
       <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden"}}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr style={{borderBottom:"1px solid var(--border)"}}>
+            <thead><tr style={{borderBottom:"1px solid var(--border)",background:"var(--btn-bg)"}}>
               {["Date","EPS Est","EPS Actual","Surprise","1D Move","5D Move"].map(h=>(<th key={h} style={{padding:"10px 14px",textAlign:"left",fontFamily:"var(--mono)",fontSize:9,textTransform:"uppercase",letterSpacing:".06em",color:"var(--dim)",fontWeight:600}}>{h}</th>))}
             </tr></thead>
             <tbody>
@@ -325,36 +377,28 @@ export default function App() {
   const [loadProgress,setLoadProgress]=useState("");
   const [customTicker,setCustomTicker]=useState("");
 
-  const fetchAllData = useCallback(async (key, tickers) => {
-    setLoading(true);
-    const allResults = [];
-    for (let i = 0; i < tickers.length; i++) {
-      setLoadProgress(`Loading ${tickers[i]} (${i+1}/${tickers.length})...`);
-      const results = await fetchEarningsForTicker(tickers[i], key);
-      allResults.push(...results);
-      if (i < tickers.length - 1) await new Promise(r => setTimeout(r, 250));
-    }
-    setLiveData(allResults);
-    setLoading(false);
-    setLoadProgress("");
-  }, []);
-
-  const handleSaveKey = () => { setShowModal(false); if (apiKey.trim()) fetchAllData(apiKey.trim(), DEFAULT_TICKERS); };
-
-  const handleAddTicker = () => {
+  // Alpha Vantage: 25 calls/day free. Each ticker uses 3 calls (earnings, prices, overview).
+  // So ~8 tickers per day on free tier. Load one at a time.
+  const handleAddTicker = useCallback(async () => {
     const t = customTicker.trim().toUpperCase();
     if (!t || !apiKey) return;
     setCustomTicker("");
     setLoading(true);
-    setLoadProgress(`Loading ${t}...`);
-    fetchEarningsForTicker(t, apiKey).then(results => {
-      if (results.length) setLiveData(prev => [...(prev || []), ...results]);
-      else { setLoadProgress(`No data found for ${t}`); setTimeout(() => setLoadProgress(""), 2000); }
-      setLoading(false);
-    });
-  };
+    setLoadProgress(`Loading ${t}... (3 API calls)`);
+    const results = await fetchEarningsForTicker(t, apiKey);
+    if (results.length) {
+      setLiveData(prev => [...(prev || []), ...results]);
+      setLoadProgress(`✓ Loaded ${results.length} quarters for ${t}`);
+    } else {
+      setLoadProgress(`No data found for ${t} — may have hit rate limit (25 calls/day). Wait 1 min and retry.`);
+    }
+    setLoading(false);
+    setTimeout(() => setLoadProgress(""), 4000);
+  }, [customTicker, apiKey]);
 
-  const rawData = liveData || SAMPLE_DATA;
+  const handleSaveKey = () => { setShowModal(false); };
+
+  const rawData = liveData && liveData.length > 0 ? [...SAMPLE_DATA, ...liveData] : SAMPLE_DATA;
   const allData = useMemo(() => process(rawData), [rawData]);
   const sectors = useMemo(() => { const s = new Set(allData.map(d => d.sector)); return ["All", ...Array.from(s).sort()]; }, [allData]);
   const latest = useMemo(() => getLatest(allData), [allData]);
@@ -382,28 +426,12 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
         :root {
-          --display:'Plus Jakarta Sans',sans-serif;
-          --body:'Inter',sans-serif;
-          --mono:'JetBrains Mono',monospace;
-          --bg:#f8fafc;
-          --card:#ffffff;
-          --plot:#f1f5f9;
-          --border:#e2e8f0;
-          --text:#0f172a;
-          --dim:#64748b;
-          --grid-label:rgba(100,116,139,.3);
-          --green:#059669;
-          --red:#dc2626;
-          --orange:#d97706;
-          --accent:#4f46e5;
-          --grid:rgba(100,116,139,.15);
-          --zero:rgba(100,116,139,.3);
-          --tag-bg:#f1f5f9;
-          --btn-bg:#f1f5f9;
-          --btn-active:#4f46e5;
+          --display:'Plus Jakarta Sans',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+          --bg:#f8fafc;--card:#ffffff;--plot:#f1f5f9;--border:#e2e8f0;--text:#0f172a;--dim:#64748b;
+          --grid-label:rgba(100,116,139,.3);--green:#059669;--red:#dc2626;--orange:#d97706;--accent:#4f46e5;
+          --grid:rgba(100,116,139,.15);--zero:rgba(100,116,139,.3);--tag-bg:#f1f5f9;--btn-bg:#f1f5f9;--btn-active:#4f46e5;
         }
-        *{box-sizing:border-box;margin:0}
-        button{cursor:pointer;border:none;font-family:var(--body)}
+        *{box-sizing:border-box;margin:0}button{cursor:pointer;border:none;font-family:var(--body)}
         @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
       `}</style>
 
@@ -416,26 +444,29 @@ export default function App() {
         </div>
         <p style={{ color:"var(--dim)", fontSize:13, marginBottom:6 }}>How stocks react to earnings surprises — click any stock for its historical pattern.</p>
 
-        {loading && (
-          <div style={{ padding:"10px 14px", background:"rgba(79,70,229,.06)", border:"1px solid rgba(79,70,229,.15)", borderRadius:8, fontSize:12, color:"var(--accent)", marginBottom:12, animation:"pulse 1.5s ease-in-out infinite" }}>
-            {loadProgress || "Loading..."}
+        {loadProgress && (
+          <div style={{ padding:"10px 14px", background:loadProgress.startsWith("✓")?"rgba(5,150,105,.06)":"rgba(79,70,229,.06)", border:`1px solid ${loadProgress.startsWith("✓")?"rgba(5,150,105,.15)":"rgba(79,70,229,.15)"}`, borderRadius:8, fontSize:12, color:loadProgress.startsWith("✓")?"var(--green)":"var(--accent)", marginBottom:12, animation:loading?"pulse 1.5s ease-in-out infinite":"none" }}>
+            {loadProgress}
           </div>
         )}
 
-        {!apiKey && !loading && (
+        {!apiKey && (
           <div style={{ marginBottom:16, padding:"8px 12px", background:"rgba(79,70,229,.05)", border:"1px solid rgba(79,70,229,.12)", borderRadius:8, fontSize:11, color:"var(--accent)" }}>
-            Sample data · Click "Connect API Key" for live earnings data from Financial Modeling Prep.
+            Showing sample data. Click "Connect API Key" to add an Alpha Vantage key and load live earnings data.
           </div>
         )}
 
-        {apiKey && !selectedTicker && (
+        {/* Add ticker */}
+        {!selectedTicker && (
           <div style={{ display:"flex", gap:8, marginBottom:16, alignItems:"center" }}>
-            <input type="text" placeholder="Add ticker (e.g. INTC)" value={customTicker}
+            <input type="text" placeholder={apiKey ? "Add ticker (e.g. INTC)" : "Connect API key first"} value={customTicker}
               onChange={e=>setCustomTicker(e.target.value.toUpperCase())}
               onKeyDown={e=>e.key==="Enter"&&handleAddTicker()}
-              style={{ padding:"7px 12px", background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, color:"var(--text)", fontSize:12, fontFamily:"var(--mono)", width:160, outline:"none" }}
+              disabled={!apiKey}
+              style={{ padding:"7px 12px", background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, color:"var(--text)", fontSize:12, fontFamily:"var(--mono)", width:200, outline:"none", opacity:apiKey?1:.5 }}
             />
-            <button onClick={handleAddTicker} style={{ padding:"7px 14px", borderRadius:8, background:"var(--accent)", color:"#fff", fontSize:12, fontWeight:600 }}>Add</button>
+            <button onClick={handleAddTicker} disabled={!apiKey} style={{ padding:"7px 14px", borderRadius:8, background:apiKey?"var(--accent)":"var(--dim)", color:"#fff", fontSize:12, fontWeight:600, opacity:apiKey?1:.5 }}>Add</button>
+            {apiKey && <span style={{fontSize:10,color:"var(--dim)",fontFamily:"var(--mono)"}}>Free tier: ~8 stocks/day (25 API calls)</span>}
           </div>
         )}
 
@@ -526,19 +557,22 @@ export default function App() {
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.3)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:20 }} onClick={()=>setShowModal(false)}>
           <div onClick={e=>e.stopPropagation()} style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:14, padding:24, maxWidth:420, width:"100%", boxShadow:"0 8px 30px rgba(0,0,0,.12)" }}>
             <h3 style={{ fontFamily:"var(--display)", fontSize:16, fontWeight:700, marginBottom:6, color:"var(--text)" }}>Connect Live Data</h3>
-            <p style={{ color:"var(--dim)", fontSize:12, lineHeight:1.5, marginBottom:6 }}>Get a free API key from Financial Modeling Prep:</p>
+            <p style={{ color:"var(--dim)", fontSize:12, lineHeight:1.5, marginBottom:6 }}>Get a free Alpha Vantage API key:</p>
             <ol style={{ color:"var(--dim)", fontSize:12, lineHeight:1.8, marginBottom:14, paddingLeft:20 }}>
-              <li>Go to <span style={{ color:"var(--accent)", fontWeight:500 }}>financialmodelingprep.com</span></li>
-              <li>Sign up (free tier = 250 calls/day)</li>
-              <li>Copy your API key from the dashboard</li>
-              <li>Paste it below and hit Save</li>
+              <li>Go to <span style={{ color:"var(--accent)", fontWeight:500 }}>alphavantage.co/support/#api-key</span></li>
+              <li>Fill out the short form</li>
+              <li>Copy your API key</li>
+              <li>Paste it below</li>
             </ol>
-            <input type="text" placeholder="Paste your FMP API key here" value={apiKey} onChange={e=>setApiKey(e.target.value)}
+            <p style={{ color:"var(--dim)", fontSize:11, marginBottom:10, lineHeight:1.4 }}>
+              Free tier = 25 API calls/day (~8 stocks). Each stock you add pulls full earnings history (20+ quarters).
+            </p>
+            <input type="text" placeholder="Paste your Alpha Vantage API key" value={apiKey} onChange={e=>setApiKey(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&handleSaveKey()}
               style={{ width:"100%", padding:"10px 12px", background:"var(--btn-bg)", border:"1px solid var(--border)", borderRadius:8, color:"var(--text)", fontSize:12, marginBottom:12, outline:"none", fontFamily:"var(--mono)" }}
             />
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={handleSaveKey} style={{ flex:1, padding:"10px", borderRadius:8, background:"var(--accent)", color:"#fff", fontWeight:600, fontSize:13 }}>Save & Load Data</button>
+              <button onClick={handleSaveKey} style={{ flex:1, padding:"10px", borderRadius:8, background:"var(--accent)", color:"#fff", fontWeight:600, fontSize:13 }}>Save</button>
               <button onClick={()=>setShowModal(false)} style={{ flex:1, padding:"10px", borderRadius:8, background:"var(--btn-bg)", color:"var(--dim)", fontWeight:500, fontSize:13, border:"1px solid var(--border)" }}>Cancel</button>
             </div>
           </div>
