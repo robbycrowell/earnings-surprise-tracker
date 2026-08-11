@@ -59,7 +59,7 @@ async function fetchEarningsForTicker(ticker, apiKey) {
   try {
     const [earningsRes, priceRes, profileRes] = await Promise.all([
       fetch(`https://financialmodelingprep.com/api/v3/earnings-surprises/${ticker}?apikey=${apiKey}`),
-      fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${ticker}?serietype=line&apikey=${apiKey}`),
+      fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${ticker}?serietype=line&from=2019-01-01&apikey=${apiKey}`),
       fetch(`https://financialmodelingprep.com/api/v3/profile/${ticker}?apikey=${apiKey}`),
     ]);
     const [earnings, priceData, profileArr] = await Promise.all([earningsRes.json(), priceRes.json(), profileRes.json()]);
@@ -69,7 +69,7 @@ async function fetchEarningsForTicker(ticker, apiKey) {
     const sector = SECTOR_MAP[profile?.sector || "Other"] || profile?.sector || "Other";
     const priceList = priceData.historical;
     const results = [];
-    for (const e of earnings.slice(0, 12)) {
+    for (const e of earnings.slice(0, 28)) {
       if (!e.actualEarningResult || !e.estimatedEarning || !e.date) continue;
       let beforeIdx = -1;
       for (let i = 0; i < priceList.length; i++) { if (priceList[i].date <= e.date) { beforeIdx = i; break; } }
